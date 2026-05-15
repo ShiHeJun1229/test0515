@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>健康記錄表</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>健康記錄</h1>
+    <form id="healthForm" class="card">
+        <div class="form-group">
+            <label for="heartRate">心跳 (bpm)</label>
+            <input type="number" id="heartRate" name="heartRate" required min="1" max="300">
+        </div>
+        <div class="form-group">
+            <label for="bloodPressure">血壓</label>
+            <input type="text" id="bloodPressure" name="bloodPressure" placeholder="120/80" required pattern="\d+/\d+">
+        </div>
+        <div class="form-group">
+            <label for="bodyTemp">體溫 (°C)</label>
+            <input type="number" id="bodyTemp" name="bodyTemp" required step="0.1" min="30" max="45">
+        </div>
+        <div class="form-group">
+            <label for="respRate">呼吸頻率 (次/分)</label>
+            <input type="number" id="respRate" name="respRate" required min="1" max="100">
+        </div>
+        <button type="submit">新增記錄</button>
+    </form>
+
+    <h2>記錄列表</h2>
+    <button id="downloadBtn" class="download-btn">下載 JSON</button>
+    <div class="card">
+        <div class="table-container">
+            <table id="recordsTable">
+                <thead>
+                    <tr>
+                        <th>心跳</th>
+                        <th>血壓</th>
+                        <th>體溫</th>
+                        <th>呼吸頻率</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="recordsBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
