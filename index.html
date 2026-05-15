@@ -3,12 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>健康記錄表</title>
+    <title>健康記錄表 - 多用戶版</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <h1>健康記錄</h1>
-    <form id="healthForm" class="card">
+    
+    <div id="authSection" class="card">
+        <h3>使用者登入</h3>
+        <div class="form-group">
+            <label for="userName">請輸入您的名稱</label>
+            <input type="text" id="userName" placeholder="例如：王小明">
+        </div>
+        <button id="loginBtn">登入</button>
+        <p id="userInfo" style="display:none; margin-top:10px;">
+            已登入：<span id="displayName"></span> <button id="logoutBtn" style="margin-left:10px;">登出</button>
+        </p>
+    </div>
+
+    <form id="healthForm" class="card" style="display:none;">
         <div class="form-group">
             <label for="heartRate">心跳 (bpm)</label>
             <input type="number" id="heartRate" name="heartRate" required min="1" max="300">
@@ -29,8 +42,8 @@
     </form>
 
     <h2>記錄列表</h2>
-    <button id="downloadBtn" class="download-btn">下載 JSON</button>
-    <div class="card">
+    <button id="downloadBtn" class="download-btn" style="display:none;">下載 JSON</button>
+    <div id="recordsCard" class="card" style="display:none;">
         <div class="table-container">
             <table id="recordsTable">
                 <thead>
@@ -39,6 +52,7 @@
                         <th>血壓</th>
                         <th>體溫</th>
                         <th>呼吸頻率</th>
+                        <th>時間</th>
                         <th>操作</th>
                     </tr>
                 </thead>
@@ -48,6 +62,148 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKAkK89YD3IhmyfmCcmXnDw_LrUrij0xg",
+            authDomain: "test0515-4d88f.firebaseapp.com",
+            projectId: "test0515-4d88f",
+            storageBucket: "test0515-4d88f.firebasestorage.app",
+            messagingSenderId: "971174204319",
+            appId: "1:971174204319:web:9156694a5c00997da6e3aa",
+            measurementId: "G-7H0057TH9D"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        let currentUser = null;
+        const localRecords = [];
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginBtn = document.getElementById('loginBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const userName = document.getElementById('userName');
+            const userInfo = document.getElementById('userInfo');
+            const displayName = document.getElementById('displayName');
+            const healthForm = document.getElementById('healthForm');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const recordsCard = document.getElementById('recordsCard');
+            
+            loginBtn.addEventListener('click', function() {
+                const name = userName.value.trim();
+                if (name) {
+                    currentUser = name;
+                    displayName.textContent = name;
+                    userInfo.style.display = 'block';
+                    healthForm.style.display = 'block';
+                    downloadBtn.style.display = 'inline-block';
+                    recordsCard.style.display = 'block';
+                    loadRecords();
+                }
+            });
+            
+            logoutBtn.addEventListener('click', function() {
+                currentUser = null;
+                userName.value = '';
+                userInfo.style.display = 'none';
+                healthForm.style.display = 'none';
+                downloadBtn.style.display = 'none';
+                recordsCard.style.display = 'none';
+            });
+            
+            healthForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                if (!currentUser) return;
+                
+                const heartRate = document.getElementById('heartRate').value;
+                const bloodPressure = document.getElementById('bloodPressure').value;
+                const bodyTemp = document.getElementById('bodyTemp').value;
+                const respRate = document.getElementById('respRate').value;
+                
+                await db.collection('records').add({
+                    userId: currentUser,
+                    heartRate,
+                    bloodPressure,
+                    bodyTemp,
+                    respRate,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                this.reset();
+                loadRecords();
+            });
+            
+            downloadBtn.addEventListener('click', downloadJSON);
+        });
+        
+        async function loadRecords() {
+            if (!currentUser) return;
+            
+            const tbody = document.getElementById('recordsBody');
+            tbody.innerHTML = '<tr><td colspan="6">載入中...</td></tr>';
+            
+            const snapshot = await db.collection('records')
+                .where('userId', '==', currentUser)
+                .orderBy('timestamp', 'desc')
+                .get();
+            
+            tbody.innerHTML = '';
+            
+            snapshot.forEach(doc => {
+                const record = doc.data();
+                const row = document.createElement('tr');
+                const time = record.timestamp ? new Date(record.timestamp.toDate()).toLocaleString('zh-TW') : '';
+                row.innerHTML = `
+                    <td>${record.heartRate}</td>
+                    <td>${record.bloodPressure}</td>
+                    <td>${record.bodyTemp}</td>
+                    <td>${record.respRate}</td>
+                    <td>${time}</td>
+                    <td><button class="delete-btn" data-id="${doc.id}">刪除</button></td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const id = this.getAttribute('data-id');
+                    await db.collection('records').doc(id).delete();
+                    loadRecords();
+                });
+            });
+        }
+        
+        async function downloadJSON() {
+            if (!currentUser) return;
+            
+            const snapshot = await db.collection('records')
+                .where('userId', '==', currentUser)
+                .orderBy('timestamp', 'desc')
+                .get();
+            
+            const records = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    heartRate: data.heartRate,
+                    bloodPressure: data.bloodPressure,
+                    bodyTemp: data.bodyTemp,
+                    respRate: data.respRate,
+                    timestamp: data.timestamp ? data.timestamp.toDate().toISOString() : ''
+                };
+            });
+            
+            const data = JSON.stringify(records, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'vitals.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
 </body>
 </html>
